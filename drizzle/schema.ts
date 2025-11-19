@@ -1,4 +1,4 @@
-import { boolean, integer, pgTable, text, timestamp } from "drizzle-orm/pg-core";
+import { boolean, integer, numeric, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 import { uuidv7 } from "uuidv7";
 
 // Admin Users Table
@@ -36,6 +36,10 @@ export const categories = pgTable("categories", {
     .$defaultFn(() => uuidv7()),
   title: text("title").notNull(),
   type: boolean("type").notNull().default(true), // true = income, false = expense
+  goal: text("goal"),
+  icon: text("icon"),
+  iconColor: text("icon_color"),
+  bgColor: text("bg_color"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
   userCreated: text("user_id")
@@ -49,7 +53,7 @@ export const transactions = pgTable("transactions", {
     .primaryKey()
     .$defaultFn(() => uuidv7()),
   categoryId: text("category_id").notNull(),
-  amount: text("amount").notNull(),
+  amount: numeric("amount", { precision: 14, scale: 2 }).notNull(),
   description: text("description"),
   date: timestamp("date").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),

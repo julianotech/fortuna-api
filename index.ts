@@ -24,11 +24,12 @@ const fastify = Fastify({
 
 // Register CORS
 fastify.register(cors, {
-  origin: (origin, cb) => {
+  origin: (origin, cb): void => {
     const allowedOrigins = [
-      process.env.FRONTEND_URL || "http://localhost:8081",
+      process.env.FRONTEND_URL,
       process.env.VERCEL_URL,
       process.env.PRODUCTION_URL,
+      "http://localhost:8080"
     ].filter(Boolean);
 
     // Allow requests with no origin (like mobile apps, curl, Postman)

@@ -51,27 +51,46 @@ async function seed(): Promise<void> {
       {
         title: "Salário",
         type: true,
-        userCreated: getRandomId(userIds)
+        userCreated: getRandomId(userIds),
+        goal: "5000",
+        icon: "DollarSign",
+        bgColor: "bg-red-500/20",
+        iconColor: "text-red-500",
       },
       {
         title: "Freelance",
         type: true,
-        userCreated: getRandomId(userIds)
+        userCreated: getRandomId(userIds),
+        goal: "2000",
+        icon: "Briefcase",
+        iconColor: "text-purple-500",
+        bgColor: "bg-purple-500/20",
       },
       {
         title: "Aluguel",
         type: false,
-        userCreated: getRandomId(userIds)
+        userCreated: getRandomId(userIds),
+        goal: "1500",
+        icon: "Home",
+        iconColor: "text-green-500",
+        bgColor: "bg-green-500/20",
       },
       {
         title: "Supermercado",
         type: false,
-        userCreated: getRandomId(userIds)
+        userCreated: getRandomId(userIds),
+        goal: "800",
+        icon: "ShoppingCart",
+        bgColor: "bg-yellow-500/20",
       },
       {
         title: "Transporte",
         type: false,
-        userCreated: getRandomId(userIds)
+        userCreated: getRandomId(userIds),
+        goal: "300",
+        icon: "Car",
+        iconColor: "text-blue-500",
+        bgColor: "bg-blue-500/20",
       },
     ]
 

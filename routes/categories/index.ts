@@ -2,8 +2,9 @@ import { eq } from "drizzle-orm";
 import { FastifyInstance } from "fastify";
 import { z } from "zod";
 
-import { db } from "../drizzle/db";
-import { categories } from "../drizzle/schema";
+import { db } from "../../drizzle/db";
+import { categories } from "../../drizzle/schema";
+import { constructCategoryQuery } from "./lib";
 
 // Validation schema
 const createCategorySchema = z.object({
@@ -20,11 +21,11 @@ export default async function categoriesRoutes(fastify: FastifyInstance) {
   fastify.get("/api/categories", async (request, reply) => {
     try {
       // TODO: Add authentication middleware
-
-      const allCategories = await db.select().from(categories).orderBy(categories.createdAt);
+      const data = await constructCategoryQuery(db)
+        .orderBy(categories.createdAt);
       return reply.send({
         success: true,
-        data: allCategories,
+        data,
       });
     } catch (error) {
       request.log.error(error);
@@ -40,9 +41,11 @@ export default async function categoriesRoutes(fastify: FastifyInstance) {
     try {
       const { id } = request.params as { id: string };
 
-      const category = await db.select().from(categories).where(eq(categories.id, id)).limit(1);
+      const data = await constructCategoryQuery(db)
+        .where(eq(categories.id, id))
+        .limit(1);
 
-      if (category.length === 0) {
+      if (!data) {
         return reply.status(404).send({
           success: false,
           message: "Categoria não encontrada",
@@ -51,7 +54,7 @@ export default async function categoriesRoutes(fastify: FastifyInstance) {
 
       return reply.send({
         success: true,
-        data: category[0],
+        data
       });
     } catch (error) {
       request.log.error(error);
