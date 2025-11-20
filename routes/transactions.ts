@@ -1,9 +1,9 @@
-import { eq } from "drizzle-orm";
+import { and, eq, gte, ilike, lte, or } from "drizzle-orm";
 import { FastifyInstance } from "fastify";
 import { z } from "zod";
 
 import { db } from "../drizzle/db";
-import { transactions } from "../drizzle/schema";
+import { categories, transactions } from "../drizzle/schema";
 
 // Validation schema
 const createTransactionSchema = z.object({
@@ -16,16 +16,82 @@ const createTransactionSchema = z.object({
   userCreated: z.string().min(1, "User Created is required"),
   userUpdated: z.string().min(1, "User Updated is required").optional(),
 });
+// Define o esquema de validação dos parâmetros de query (query string)
+const getTransactionsSchema = {
+  querystring: {
+    type: 'object',
+    properties: {
+      startDate: { type: 'string', format: 'date' }, // Ex: '2025-10-01'
+      endDate: { type: 'string', format: 'date' },   // Ex: '2025-10-31'
+      search: { type: 'string' }, // Trecho de busca (description ou title)
+      type: { type: 'string' }
+    },
+  },
+};
 
+interface QueryTransactions {
+  startDate: Date,
+  endDate: Date
+  search: string
+  type: 'income' | 'expense'
+}
 const updateTransactionSchema = createTransactionSchema.partial();
 
-export default async function transactionsRoutes(fastify: FastifyInstance) {
+export default async function transactionsRoutes(fastify: FastifyInstance): Promise<void> {
   // List all transactions
-  fastify.get("/api/transactions", async (request, reply) => {
+  fastify.get("/api/transactions", { schema: getTransactionsSchema }, async (request, reply) => {
     try {
-      // TODO: Add authentication middleware
+      // 1. Extrair e tipar os parâmetros da query
+      const { startDate, endDate, search, type } = request.query as QueryTransactions;
 
-      const allTransactions = await db.select().from(transactions).orderBy(transactions.createdAt);
+      // 2. Construir o array de condições (WHERE clauses)
+      const conditions = [];
+      const isIncome = type === 'income'
+
+      if (isIncome) {
+        conditions.push(eq(categories.type, isIncome))
+      }
+      // Filtro de Data Inicial (startDate)
+      if (startDate) {
+        // Garante que a transação é MAIOR OU IGUAL (Greater Than or Equal) à data inicial
+        conditions.push(gte(transactions.date, new Date(startDate)));
+      }
+
+      // Filtro de Data Final (endDate)
+      if (endDate) {
+        // Garante que a transação é MENOR OU IGUAL (Less Than or Equal) à data final
+        conditions.push(lte(transactions.date, new Date(endDate)));
+      }
+
+      // Filtro de Busca por Texto (search)
+      if (search) {
+        const searchPattern = `%${search}%`; // Padrão SQL LIKE (case-insensitive search)
+
+        // Adiciona uma condição OR para buscar o texto na descrição OU no título da categoria
+        conditions.push(
+          or(
+            // Busca na descrição da transação
+            ilike(transactions.description, searchPattern),
+            ilike(categories.title, searchPattern), // <<-- Agora busca na tabela categories
+          )
+        );
+      }
+
+      // 3. Executar a consulta usando AND para combinar todas as condições
+      const allTransactions = await db.select({
+        id: transactions.id,
+        categoryId: transactions.categoryId,
+        amount: transactions.amount,
+        description: transactions.description,
+        date: transactions.date,
+        createdAt: transactions.createdAt,
+        updatedAt: transactions.updatedAt,
+      })
+        .from(transactions)
+        .leftJoin(categories, eq(transactions.categoryId, categories.id))
+        .where(and(...conditions)) // Aplica todas as condições combinadas com AND
+        .orderBy(transactions.createdAt);
+
       return reply.send({
         success: true,
         data: allTransactions,

@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq, ilike, or } from "drizzle-orm";
 import { FastifyInstance } from "fastify";
 import { z } from "zod";
 
@@ -16,13 +16,52 @@ const createCategorySchema = z.object({
 const updateCategorySchema = createCategorySchema.partial();
 
 
-export default async function categoriesRoutes(fastify: FastifyInstance) {
+interface QueryCategories {
+  startDate: Date,
+  endDate: Date
+  search: string
+  type: 'income' | 'expense'
+}
+
+const getTransactionsSchema = {
+  querystring: {
+    type: 'object',
+    properties: {
+      search: { type: 'string' },
+      type: { type: 'string' }
+    },
+  },
+};
+
+export default async function categoriesRoutes(fastify: FastifyInstance): Promise<void> {
   // List all categories
-  fastify.get("/api/categories", async (request, reply) => {
+  fastify.get("/api/categories", { schema: getTransactionsSchema }, async (request, reply) => {
     try {
       // TODO: Add authentication middleware
+      const { type, search } = request.query as QueryCategories;
+      const conditions = [];
+      const isIncome = type === 'income'
+      if (type) {
+        conditions.push(
+          eq(categories.type, isIncome)
+        )
+      }
+
+      if (search) {
+        const searchPattern = `%${search}%`;
+
+        // Adiciona uma condição OR para buscar o texto na descrição OU no título da categoria
+        conditions.push(
+          or(
+            ilike(categories.title, searchPattern), // <<-- Agora busca na tabela categories
+          )
+        );
+      }
+
       const data = await constructCategoryQuery(db)
+        .where(and(...conditions))
         .orderBy(categories.createdAt);
+
       return reply.send({
         success: true,
         data,

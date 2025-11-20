@@ -5,8 +5,15 @@ import { categories, transactions } from "drizzle/schema";
 export function constructCategoryQuery(db: DB) {
   const totalSpent = sql`
     COALESCE(
-        SUM(CAST(REPLACE(${transactions.amount}::TEXT, ',', '.') AS NUMERIC)),
-        0
+        SUM(
+            CASE
+                -- Condição para verificar se a transação está no mês e ano atuais
+                WHEN DATE_TRUNC('month', ${transactions.createdAt}) = DATE_TRUNC('month', NOW())
+                THEN CAST(REPLACE(${transactions.amount}::TEXT, ',', '.') AS NUMERIC)
+                ELSE NULL -- Transações de outros meses são ignoradas pela soma
+            END
+        ),
+        0 -- Se a soma for NULL (ou seja, não há transações no mês), retorna 0
     )
 `.as("totalSpent");
   const selectCategory = {
@@ -23,7 +30,7 @@ export function constructCategoryQuery(db: DB) {
   }
   return db.select(selectCategory)
     .from(categories)
-    .leftJoin(transactions, eq(categories.id, transactions.categoryId))
+    .innerJoin(transactions, eq(categories.id, transactions.categoryId))
     .groupBy(
       categories.id,
       categories.title,
