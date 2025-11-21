@@ -3,7 +3,8 @@
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "src/infra/*": ["./src/infra/*"]
     },
     "outDir": "./api",
     "rootDir": "./",

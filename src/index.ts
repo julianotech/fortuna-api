@@ -1,4 +1,5 @@
 import cors from "@fastify/cors";
+import { VercelFastify } from "@vercel/node";
 import Fastify from "fastify";
 
 import { loggerOptions } from "./infra";
@@ -58,12 +59,9 @@ const start = async (): Promise<void> => {
 };
 
 // Only start server if not in Vercel
-if (isProduction) {
+if (!isProduction) {
   start();
 }
 
 // Export for Vercel serverless
-export default async (req: unknown, res: unknown) => {
-  await fastify.ready();
-  fastify.server.emit("request", req, res);
-};
+export default VercelFastify(fastify);
