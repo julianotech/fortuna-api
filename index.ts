@@ -1,9 +1,9 @@
 import cors from "@fastify/cors";
 import Fastify from "fastify";
 
-import { loggerOptions } from "infra/";
-import { authRoutes, categoriesRoutes, transactionsRoutes } from "routes/";
-import { env, isProduction } from "support/";
+import { loggerOptions } from "./infra/";
+import { authRoutes, categoriesRoutes, transactionsRoutes } from "./routes/";
+import { env, isProduction } from "./support/";
 
 const fastify = Fastify(loggerOptions);
 

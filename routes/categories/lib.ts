@@ -1,6 +1,6 @@
 import { eq, sql } from "drizzle-orm";
 import type { DB } from "drizzle/db";
-import { categories, transactions } from "drizzle/schema";
+import { categories, transactions } from "../../drizzle/schema";
 
 export function constructCategoryQuery(db: DB) {
   const totalSpent = sql`

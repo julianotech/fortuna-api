@@ -104,17 +104,10 @@ export default async function transactionsRoutes(fastify: FastifyInstance): Prom
         .from(transactions)
         .leftJoin(categories, eq(transactions.categoryId, categories.id))
         .where(and(...conditions)) // Aplica todas as condições combinadas com AND
-      // .orderBy(transactions.createdAt);
-
-      // const count = query
-
-      // if (limit) {
-      //   baseQuery.limit(Number((limit)))
-      // }
 
       let dataQuery = baseQuery
         .orderBy(transactions.createdAt)
-        .$dynamic(); // Marca como dinâmico se for aplicar LIMIT condicionalmente
+        .$dynamic();
 
       if (limit) {
         const limitValue = parseInt(limit, 10);

@@ -4,9 +4,9 @@ import { FastifyInstance } from "fastify";
 import jwt from "jsonwebtoken";
 import { z } from "zod";
 
-import { env } from "support";
 import { db } from "../drizzle/db";
 import { adminUsers } from "../drizzle/schema";
+import { env } from "../support";
 
 const JWT_EXPIRES_IN = "7d";
 
