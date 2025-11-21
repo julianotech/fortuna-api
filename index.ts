@@ -1,35 +1,19 @@
 import cors from "@fastify/cors";
 import Fastify from "fastify";
 
-import authRoutes from "./routes/auth";
-import categoriesRoutes from "./routes/categories";
-import transactionsRoutes from "./routes/transactions";
+import { loggerOptions } from "infra/";
+import { authRoutes, categoriesRoutes, transactionsRoutes } from "routes/";
+import { env, isProduction } from "support/";
 
-const fastify = Fastify({
-  logger: {
-    transport: {
-      target: "pino-pretty",
-      options: {
-        translateTime: "HH:MM:ss Z",
-        ignore: "pid,hostname",
-        colorize: true,
-        levelFirst: true,
-        messageFormat: "{levelLabel} - {msg}",
-        customLevels: "trace:10,debug:20,info:30,warn:40,error:50,fatal:60",
-        customColors: "trace:gray,debug:blue,info:green,warn:yellow,error:red,fatal:bgRed",
-      },
-    },
-  },
-});
+const fastify = Fastify(loggerOptions);
 
 // Register CORS
 fastify.register(cors, {
   origin: (origin, cb): void => {
     const allowedOrigins = [
-      process.env.FRONTEND_URL,
-      process.env.VERCEL_URL,
-      process.env.PRODUCTION_URL,
-      "http://localhost:8080"
+      env.FRONTEND_URL,
+      "http://localhost:8080",
+      "http://localhost:3000"
     ].filter(Boolean);
 
     // Allow requests with no origin (like mobile apps, curl, Postman)
@@ -50,8 +34,8 @@ fastify.register(cors, {
 });
 
 // Health check
-fastify.get("/api/health", async () => {
-  return { status: "ok", service: "portal-admin-api" };
+fastify.get("/api/health", async (): Promise<{ status: string, service: string }> => {
+  return { status: "ok", service: "fortuna-api" };
 });
 
 // Register routes
@@ -60,11 +44,13 @@ fastify.register(categoriesRoutes);
 fastify.register(transactionsRoutes);
 
 // Start server (for local development)
-const start = async () => {
+const start = async (): Promise<void> => {
   try {
-    const port = Number(process.env.PORT) || 3000;
+    const port = Number(env.PORT) || 3000;
     await fastify.listen({ port, host: "::" });
-    console.log(`🚀 Server running at http://localhost:${port}`);
+    if (!isProduction) {
+      fastify.log.info(`🚀 Server running at http://localhost:${port}`);
+    }
   } catch (err) {
     fastify.log.error(err);
     process.exit(1);
@@ -72,7 +58,7 @@ const start = async () => {
 };
 
 // Only start server if not in Vercel
-if (process.env.NODE_ENV !== "production") {
+if (isProduction) {
   start();
 }
 

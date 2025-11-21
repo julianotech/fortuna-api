@@ -4,10 +4,10 @@ import { FastifyInstance } from "fastify";
 import jwt from "jsonwebtoken";
 import { z } from "zod";
 
+import { env } from "support";
 import { db } from "../drizzle/db";
 import { adminUsers } from "../drizzle/schema";
 
-const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key-change-in-production";
 const JWT_EXPIRES_IN = "7d";
 
 // Validation schemas
@@ -76,7 +76,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
           email: user.email,
           role: user.role,
         },
-        JWT_SECRET,
+        env.JWT_SECRET,
         { expiresIn: JWT_EXPIRES_IN }
       );
 
@@ -122,7 +122,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
       const token = authHeader.substring(7);
 
       // Verify token
-      const decoded = jwt.verify(token, JWT_SECRET) as {
+      const decoded = jwt.verify(token, env.JWT_SECRET) as {
         id: string;
         email: string;
         role: string;
