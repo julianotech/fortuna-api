@@ -1,4 +1,4 @@
-import { and, eq, gte, ilike, lte, or } from "drizzle-orm";
+import { and, eq, gte, ilike, lte, or, sql } from "drizzle-orm";
 import { FastifyInstance } from "fastify";
 import { z } from "zod";
 
@@ -13,7 +13,7 @@ const createTransactionSchema = z.object({
     message: "Date must be a valid date",
   }).transform((value: string): Date => new Date(value)),
   categoryId: z.string().min(1, "Category ID is required"),
-  userCreated: z.string().min(1, "User Created is required"),
+  userCreated: z.string().min(1, "User Created is required").optional(),
   userUpdated: z.string().min(1, "User Updated is required").optional(),
 });
 // Define o esquema de validação dos parâmetros de query (query string)
@@ -24,7 +24,8 @@ const getTransactionsSchema = {
       startDate: { type: 'string', format: 'date' }, // Ex: '2025-10-01'
       endDate: { type: 'string', format: 'date' },   // Ex: '2025-10-31'
       search: { type: 'string' }, // Trecho de busca (description ou title)
-      type: { type: 'string' }
+      type: { type: 'string' },
+      categoryId: { type: 'string' }
     },
   },
 };
@@ -33,7 +34,9 @@ interface QueryTransactions {
   startDate: Date,
   endDate: Date
   search: string
-  type: 'income' | 'expense'
+  type: 'income' | 'expense' | 'all'
+  limit: string
+  categoryId: string
 }
 const updateTransactionSchema = createTransactionSchema.partial();
 
@@ -42,14 +45,13 @@ export default async function transactionsRoutes(fastify: FastifyInstance): Prom
   fastify.get("/api/transactions", { schema: getTransactionsSchema }, async (request, reply) => {
     try {
       // 1. Extrair e tipar os parâmetros da query
-      const { startDate, endDate, search, type } = request.query as QueryTransactions;
+      const { startDate, endDate, search, type, limit, categoryId } = request.query as QueryTransactions;
 
       // 2. Construir o array de condições (WHERE clauses)
       const conditions = [];
-      const isIncome = type === 'income'
-
-      if (isIncome) {
-        conditions.push(eq(categories.type, isIncome))
+      if (type && type !== 'all') {
+        const isIncome = type === 'income';
+        conditions.push(eq(categories.type, isIncome));
       }
       // Filtro de Data Inicial (startDate)
       if (startDate) {
@@ -61,6 +63,10 @@ export default async function transactionsRoutes(fastify: FastifyInstance): Prom
       if (endDate) {
         // Garante que a transação é MENOR OU IGUAL (Less Than or Equal) à data final
         conditions.push(lte(transactions.date, new Date(endDate)));
+      }
+
+      if (categoryId) {
+        conditions.push(eq(transactions.categoryId, categoryId));
       }
 
       // Filtro de Busca por Texto (search)
@@ -76,9 +82,15 @@ export default async function transactionsRoutes(fastify: FastifyInstance): Prom
           )
         );
       }
+      const categoryType = sql`
+            CASE 
+                WHEN ${categories.type} THEN 'income' 
+                ELSE 'expense' 
+            END
+        `.as("categoryType");
 
       // 3. Executar a consulta usando AND para combinar todas as condições
-      const allTransactions = await db.select({
+      const baseQuery = db.select({
         id: transactions.id,
         categoryId: transactions.categoryId,
         amount: transactions.amount,
@@ -86,21 +98,69 @@ export default async function transactionsRoutes(fastify: FastifyInstance): Prom
         date: transactions.date,
         createdAt: transactions.createdAt,
         updatedAt: transactions.updatedAt,
+        type: categoryType,
+        icon: sql<string>`COALESCE(${categories.icon}, 'BadgeDollarSign')`.as('icon')
       })
         .from(transactions)
         .leftJoin(categories, eq(transactions.categoryId, categories.id))
         .where(and(...conditions)) // Aplica todas as condições combinadas com AND
-        .orderBy(transactions.createdAt);
+      // .orderBy(transactions.createdAt);
 
+      // const count = query
+
+      // if (limit) {
+      //   baseQuery.limit(Number((limit)))
+      // }
+
+      let dataQuery = baseQuery
+        .orderBy(transactions.createdAt)
+        .$dynamic(); // Marca como dinâmico se for aplicar LIMIT condicionalmente
+
+      if (limit) {
+        const limitValue = parseInt(limit, 10);
+        if (!isNaN(limitValue) && limitValue > 0) {
+          dataQuery = dataQuery.limit(limitValue);
+        }
+      }
+
+      // --- QUERY DE CONTAGEM (APENAS COUNT) ---
+      // Reutiliza as cláusulas FROM, JOIN e WHERE, mas seleciona apenas o COUNT.
+      const countQuery = db.select({
+        total: sql<number>`count(*)`
+      })
+        .from(transactions)
+        .leftJoin(categories, eq(transactions.categoryId, categories.id))
+        .where(conditions.length > 0 ? and(...conditions) : undefined);
+
+      // 4. Executar as duas queries em paralelo
+      const [allTransactions, totalCountResult] = await Promise.all([
+        dataQuery,
+        countQuery,
+      ]);
+
+      const totalRows = totalCountResult[0].total;
+
+      // 5. Retorna os dados e o total
       return reply.send({
         success: true,
         data: allTransactions,
+        total: totalRows,
+        hasMore: totalRows > allTransactions.length
       });
-    } catch (error) {
+    }
+    catch (error) {
+      if (error instanceof z.ZodError) {
+        return reply.status(400).send({
+          success: false,
+          message: "Dados inválidos",
+          errors: error.issues,
+        });
+      }
+
       request.log.error(error);
       return reply.status(500).send({
         success: false,
-        message: "Erro ao listar transações",
+        message: "Erro ao criar transação",
       });
     }
   });
