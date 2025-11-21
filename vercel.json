@@ -8,7 +8,7 @@
   ],
   "functions": {
     "api/index.cjs": {
-      "runtime": "nodejs20.x"
+      "runtime": "vercel/node@20.x"
     }
   }
 }

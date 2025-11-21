@@ -1,9 +1,12 @@
 {
+  "exclude": ["api/**/*"],
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"]
     },
+    "outDir": "./api",
+    "rootDir": "./",
     "noImplicitAny": true,
     "noUnusedParameters": true,
     "skipLibCheck": true,
