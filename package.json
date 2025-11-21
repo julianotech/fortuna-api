@@ -8,7 +8,7 @@
     "node": "20.x"
   },
   "scripts": {
-    "build": "bun build ./index.ts --outfile ./api/index.cjs --target node --format cjs",
+    "build": "bun build src/index.ts --outfile ./api/index.cjs --target node --format cjs",
     "dev": "tsx watch src/index.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
