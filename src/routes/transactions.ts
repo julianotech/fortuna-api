@@ -2,8 +2,8 @@ import { and, eq, gte, ilike, lte, or, sql } from "drizzle-orm";
 import { FastifyInstance } from "fastify";
 import { z } from "zod";
 
-import { db } from "../drizzle/db";
-import { categories, transactions } from "../drizzle/schema";
+import { db } from "../../drizzle/db";
+import { categories, transactions } from "../../drizzle/schema";
 
 // Validation schema
 const createTransactionSchema = z.object({

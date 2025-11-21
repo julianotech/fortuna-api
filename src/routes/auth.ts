@@ -1,11 +1,11 @@
 import { compare, hash } from "bcrypt";
 import { eq } from "drizzle-orm";
 import { FastifyInstance } from "fastify";
-import jwt from "jsonwebtoken";
+import * as jwt from "jsonwebtoken";
 import { z } from "zod";
 
-import { db } from "../drizzle/db";
-import { adminUsers } from "../drizzle/schema";
+import { db } from "../../drizzle/db";
+import { adminUsers } from "../../drizzle/schema";
 import { env } from "../support";
 
 const JWT_EXPIRES_IN = "7d";

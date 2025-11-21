@@ -2,8 +2,8 @@ import { and, eq, ilike, or } from "drizzle-orm";
 import { FastifyInstance } from "fastify";
 import { z } from "zod";
 
-import { db } from "../../drizzle/db";
-import { categories } from "../../drizzle/schema";
+import { db } from "../../../drizzle/db";
+import { categories } from "../../../drizzle/schema";
 import { constructCategoryQuery } from "./lib";
 
 // Validation schema
