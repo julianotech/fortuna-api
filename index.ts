@@ -1,7 +1,7 @@
 import cors from "@fastify/cors";
 import Fastify from "fastify";
 
-import { loggerOptions } from "./infra/";
+import { loggerOptions } from "./infra/logger";
 import { authRoutes, categoriesRoutes, transactionsRoutes } from "./routes/";
 import { env, isProduction } from "./support/";
 
