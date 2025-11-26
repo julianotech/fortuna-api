@@ -1,7 +1,7 @@
 import { compare, hash } from "bcrypt";
 import { eq } from "drizzle-orm";
 import { FastifyInstance } from "fastify";
-import * as jwt from "jsonwebtoken";
+import jwt from "jsonwebtoken";
 import { z } from "zod";
 
 import { db } from "../../drizzle/db";
@@ -30,13 +30,12 @@ export default async function authRoutes(fastify: FastifyInstance) {
       const body = loginSchema.parse(request.body);
 
       // Find user by email
-      const users = await db
+      const [user] = await db
         .select()
         .from(adminUsers)
         .where(eq(adminUsers.email, body.email))
         .limit(1);
 
-      const user = users[0];
 
       if (!user) {
         return reply.status(401).send({

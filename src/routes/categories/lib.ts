@@ -30,7 +30,7 @@ export function constructCategoryQuery(db: DB) {
   }
   return db.select(selectCategory)
     .from(categories)
-    .innerJoin(transactions, eq(categories.id, transactions.categoryId))
+    .leftJoin(transactions, eq(categories.id, transactions.categoryId))
     .groupBy(
       categories.id,
       categories.title,

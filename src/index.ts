@@ -1,12 +1,13 @@
 import cors from "@fastify/cors";
-import { VercelFastify } from "@vercel/node";
 import Fastify from "fastify";
 
 import { loggerOptions } from "./infra";
+import authMiddleware from "./infra/authMiddleware";
 import { authRoutes, categoriesRoutes, transactionsRoutes } from "./routes/";
 import { env, isProduction } from "./support/";
 
 const fastify = Fastify(loggerOptions);
+const logger = fastify.log
 
 // Register CORS
 fastify.register(cors, {
@@ -44,16 +45,17 @@ fastify.register(authRoutes);
 fastify.register(categoriesRoutes);
 fastify.register(transactionsRoutes);
 
+// Registra o middleware de autenticação
+fastify.register(authMiddleware);
+
 // Start server (for local development)
 const start = async (): Promise<void> => {
   try {
     const port = Number(env.PORT) || 3000;
     await fastify.listen({ port, host: "::" });
-    if (!isProduction) {
-      fastify.log.info(`🚀 Server running at http://localhost:${port}`);
-    }
   } catch (err) {
-    fastify.log.error(err);
+
+    logger.error(err);
     process.exit(1);
   }
 };
@@ -62,6 +64,3 @@ const start = async (): Promise<void> => {
 if (!isProduction) {
   start();
 }
-
-// Export for Vercel serverless
-export default VercelFastify(fastify);

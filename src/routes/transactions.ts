@@ -191,7 +191,7 @@ export default async function transactionsRoutes(fastify: FastifyInstance): Prom
       // TODO: Add authentication middleware
       request.log.info({ body: request.body }, "Received transaction data");
       const body = createTransactionSchema.parse(request.body);
-      request.log.info({ parsedBody: body }, "Parsed category data");
+      request.log.info({ parsedBody: body }, "Parsed transaction data");
 
 
       const newTransactions = await db.insert(transactions).values(body).returning();

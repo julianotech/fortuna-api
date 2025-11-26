@@ -10,7 +10,11 @@ import { constructCategoryQuery } from "./lib";
 const createCategorySchema = z.object({
   title: z.string().min(1, "Título é obrigatório"),
   type: z.boolean("Tipo deve ser booleano"),
-  userCreated: z.string().min(1, "Usuário criador é obrigatório"),
+  userCreated: z.string().min(1, "Usuário criador é obrigatório").optional(),
+  icon: z.string().default("Money"),
+  iconColor: z.string().min(1, "Cor do ícone deve ser fornecida").default("text-purple-500"),
+  bgColor: z.string().min(1, "Cor de background deve ser fornecida").default("bg-yellow-500/20"),
+  goal: z.string().min(1, "A Meta deve conter um valor válido").optional()
 });
 
 const updateCategorySchema = createCategorySchema.partial();
@@ -40,10 +44,9 @@ export default async function categoriesRoutes(fastify: FastifyInstance): Promis
       // TODO: Add authentication middleware
       const { type, search } = request.query as QueryCategories;
       const conditions = [];
-      const isIncome = type === 'income'
       if (type) {
         conditions.push(
-          eq(categories.type, isIncome)
+          eq(categories.type, type === 'income')
         )
       }
 
@@ -109,7 +112,8 @@ export default async function categoriesRoutes(fastify: FastifyInstance): Promis
     try {
       // TODO: Add authentication middleware
       request.log.info({ body: request.body }, "Received category data");
-      const body = createCategorySchema.parse(request.body);
+      const data = { ...request.body, userCreated: request.user.id }
+      const body = createCategorySchema.parse(data);
       request.log.info({ parsedBody: body }, "Parsed category data");
 
 
