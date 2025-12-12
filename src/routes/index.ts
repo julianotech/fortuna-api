@@ -1,5 +1,6 @@
-import authRoutes from './auth'
 import categoriesRoutes from './categories'
 import transactionsRoutes from './transactions'
+import userAuthRoutes from './userAuth'
+import walletsRoutes from './wallets'
 
-export { authRoutes, categoriesRoutes, transactionsRoutes }
+export { categoriesRoutes, transactionsRoutes, userAuthRoutes, walletsRoutes }

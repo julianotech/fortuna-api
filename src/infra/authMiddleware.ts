@@ -13,16 +13,19 @@ declare module "fastify" {
 }
 
 const authMiddleware: FastifyPluginAsync = fp(async (fastify) => {
-  fastify.decorateRequest("user", null);
+  fastify.decorateRequest("user");
 
   fastify.addHook("preHandler", async (request: FastifyRequest, reply: FastifyReply) => {
-    if (request.url === '/api/auth/login') {
+    const publicRoutes = ['/api/auth/login', '/api/auth/register'];
+    console.log(`[AuthMiddleware] Checking URL: ${request.url}`);
+    if (publicRoutes.includes(request.url)) {
       return
     }
     const authHeader = request.headers.authorization;
 
     if (!authHeader || !authHeader.startsWith("Bearer")) {
       request.log.warn("Missing or malformed Authorization header");
+      fastify.log.warn(`[AuthMiddleware] Missing or malformed Authorization header for URL: ${request.url}`);
       return reply.status(401).send({ message: "Unauthorized" });
     }
 
@@ -30,7 +33,6 @@ const authMiddleware: FastifyPluginAsync = fp(async (fastify) => {
 
     try {
       const decoded = jwt.verify(token, env.JWT_SECRET) as { id: string };
-      console.log({ decoded })
       const userId = decoded.id;
 
       const user = await db.query.users.findFirst({
@@ -39,17 +41,17 @@ const authMiddleware: FastifyPluginAsync = fp(async (fastify) => {
 
       console.log({ user })
 
-      if (!user) {
-        request.log.warn(`User with ID ${userId} not found`);
+      if (!user || user.status !== 'active') {
+        request.log.warn(`User with ID ${userId} not found or inactive`);
         return reply.status(401).send({ message: "Unauthorized" });
       }
 
       request.user = { id: user.id }; // Adiciona o usuário ao objeto request
     } catch (err) {
-      // if (err instanceof JsonWebTokenError) {
-      //   request.log.warn(`Invalid JWT token: ${err.message}`);
-      //   return reply.status(401).send({ message: "Unauthorized" });
-      // }
+      if (err instanceof jwt.JsonWebTokenError) {
+        request.log.warn(`Invalid JWT token: ${err.message}`);
+        return reply.status(401).send({ message: "Unauthorized" });
+      }
       request.log.error(err, "Authentication error");
       return reply.status(500).send({ message: "Internal Server Error" });
     }

@@ -1,156 +1,137 @@
 import { hash } from "bcrypt";
-
 import { db } from "./db";
-import { adminUsers, categories, transactions, users } from "./schema";
+import { categories, transactions, users, usersWallets, wallets } from "./schema";
 
 const SALT_ROUNDS = 10;
 
-function getRandomId(arr: string[]): string {
-  const randomIndex = Math.floor(Math.random() * arr.length);
-  return arr[randomIndex];
-}
+
+
 async function seed(): Promise<void> {
   console.log("🌱 Seeding database...\n");
-  await db.delete(users)
-  await db.delete(categories)
-  await db.delete(adminUsers)
+  
+  // Clean up existing data
+  await db.delete(transactions);
+  await db.delete(usersWallets);
+  await db.delete(categories);
+  await db.delete(wallets);
+  await db.delete(users);
 
   try {
     // ============================================
-    // SEED ADMIN USERS (from portal-admin)
+    // SEED USERS
     // ============================================
-    console.log("👤 Creating admin users...");
+    console.log("👤 Creating users...");
 
-    const hashedPassword = await hash("admin123", SALT_ROUNDS);
+    const passwordParams = await hash("123456", SALT_ROUNDS);
 
-    await db
-      .insert(adminUsers)
-      .values([
-        {
-          email: "admin@portal.com",
-          password: hashedPassword,
-          name: "Administrador",
-          role: "super_admin",
-          isActive: 1,
-        },
-      ])
-      .onConflictDoNothing();
-
-    const userIds = await seedsUsers()
-
-    console.log("   ✅ Admin user created:");
-    console.log("      Email: admin@portal.com");
-    console.log("      Password: admin123");
-    console.log("      Role: super_admin\n");
-
-    console.log("📦 Creating categories...");
-
-
-
-    const seedCategories = [
+    const usersData = [
       {
-        title: "Salário",
-        type: true,
-        userCreated: getRandomId(userIds),
-        goal: "5000",
-        icon: "DollarSign",
-        bgColor: "bg-red-500/20",
-        iconColor: "text-red-500",
+        name: "João Silva",
+        email: "joao@email.com",
+        password: passwordParams,
+        whatsapp: "+5511999999999",
+        model: "Modelo A",
+        status: "active",
+        role: "user"
       },
       {
-        title: "Freelance",
-        type: true,
-        userCreated: getRandomId(userIds),
-        goal: "2000",
-        icon: "Briefcase",
-        iconColor: "text-purple-500",
-        bgColor: "bg-purple-500/20",
-      },
-      {
-        title: "Aluguel",
-        type: false,
-        userCreated: getRandomId(userIds),
-        goal: "1500",
-        icon: "Home",
-        iconColor: "text-green-500",
-        bgColor: "bg-green-500/20",
-      },
-      {
-        title: "Supermercado",
-        type: false,
-        userCreated: getRandomId(userIds),
-        goal: "800",
-        icon: "ShoppingCart",
-        bgColor: "bg-yellow-500/20",
-      },
-      {
-        title: "Transporte",
-        type: false,
-        userCreated: getRandomId(userIds),
-        goal: "300",
-        icon: "Car",
-        iconColor: "text-blue-500",
-        bgColor: "bg-blue-500/20",
-      },
-    ]
-
-    await db.insert(categories).values(seedCategories).onConflictDoNothing();
-
-    console.log(`   ✅ ${seedCategories.length} categories created\n`);
-
-    const avaliableCategories = await db.select({
-      id: categories.id
-    }).from(categories).then((rows: { id: string }[]): string[] => rows.map(row => row.id));
-
-    console.log("📦 Creating transactions...");
-    const seedTransactions = [
-      {
-        categoryId: getRandomId(avaliableCategories),
-        amount: "5000",
-        description: "Salário mensal",
-        date: new Date("2024-06-01"),
-        userCreated: getRandomId(userIds)
-      },
-      {
-        categoryId: getRandomId(avaliableCategories),
-        amount: "200",
-        description: "Freelance projeto X",
-        date: new Date("2024-06-10"),
-        userCreated: getRandomId(userIds)
-      },
-      {
-        categoryId: getRandomId(avaliableCategories),
-        amount: "1200",
-        description: "Aluguel do mês",
-        date: new Date("2024-06-05"),
-        userCreated: getRandomId(userIds)
-      },
-      {
-        categoryId: getRandomId(avaliableCategories),
-        amount: "300",
-        description: "Compras no supermercado",
-        date: new Date("2024-06-08"),
-        userCreated: getRandomId(userIds)
-      },
-      {
-        categoryId: getRandomId(avaliableCategories),
-        amount: "100",
-        description: "Transporte público",
-        date: new Date("2024-06-03"),
-        userCreated: getRandomId(userIds)
+        name: "Maria Oliveira",
+        email: "maria@email.com",
+        password: passwordParams,
+        whatsapp: "+5511888888888",
+        model: "Modelo B",
+        status: "active",
+        role: "admin" // Example admin
       },
     ];
 
+    const createdUsers = await db.insert(users).values(usersData).returning();
+    console.log(`   ✅ ${createdUsers.length} users created`);
 
-    await db.insert(transactions).values(seedTransactions).onConflictDoNothing();
-    console.log(`   ✅ ${seedTransactions.length} transactions created\n`);
+    // ============================================
+    // SEED WALLETS AND CATEGORIES
+    // ============================================
+    console.log("💼 Creating wallets and categories...");
+
+    const allCategories: { id: string }[] = [];
+
+    for (const user of createdUsers) {
+      // Create Wallet
+      const [wallet] = await db.insert(wallets).values({
+        name: `Carteira de ${user.name.split(' ')[0]}`,
+      }).returning();
+
+      // Link User to Wallet
+      await db.insert(usersWallets).values({
+        userId: user.id,
+        walletId: wallet.id,
+        role: "owner",
+      });
+
+      // Create Categories for this user
+      const userCategories = [
+        {
+          title: "Salário",
+          type: true,
+          userCreated: user.id,
+          goal: "5000",
+          icon: "DollarSign",
+          bgColor: "bg-red-500/20",
+          iconColor: "text-red-500",
+        },
+        {
+          title: "Alimentação",
+          type: false,
+          userCreated: user.id,
+          goal: "1000",
+          icon: "ShoppingCart",
+          bgColor: "bg-yellow-500/20",
+          iconColor: "text-yellow-500",
+        },
+        {
+          title: "Transporte",
+          type: false,
+          userCreated: user.id,
+          goal: "500",
+          icon: "Car",
+          bgColor: "bg-blue-500/20",
+          iconColor: "text-blue-500",
+        },
+      ];
+
+      const createdCats = await db.insert(categories).values(userCategories).returning();
+      allCategories.push(...createdCats);
+
+      // Create Transactions
+      const userTransactions = [
+        {
+            categoryId: createdCats[0].id, // Salário
+            walletId: wallet.id,
+            amount: "3000.00",
+            description: "Adiantamento Salarial",
+            date: new Date(),
+        },
+        {
+            categoryId: createdCats[1].id, // Alimentação
+            walletId: wallet.id,
+            amount: "150.50",
+            description: "Mercado Semanal",
+            date: new Date(),
+        }
+      ];
+
+       await db.insert(transactions).values(userTransactions);
+    }
+
+    console.log("   ✅ Wallets, Categories and Transactions created");
 
     // ============================================
     // SUMMARY
     // ============================================
     console.log("=".repeat(50));
     console.log("✅ Database seeded successfully!\n");
-    console.log("⚠️  IMPORTANTE: Altere a senha do admin após o primeiro login!");
+    console.log("      Email: joao@email.com / maria@email.com");
+    console.log("      Password: 123456");
     console.log("=".repeat(50));
   } catch (error) {
     console.error("\n❌ Error seeding database:", error);
@@ -158,41 +139,6 @@ async function seed(): Promise<void> {
   }
 
   process.exit(0);
-}
-// Importe o uuidv7 ou use a função nativa do Drizzle se necessário.
-
-
-async function seedsUsers(): Promise<string[]> {
-  const now = new Date();
-
-
-
-  console.log("Iniciando a inserção de campanhas...");
-
-  await db
-    .insert(users)
-    .values([
-      {
-        name: "João Silva",
-        whatsapp: "+5511999999999",
-        model: "Modelo A",
-        createdAt: now,
-        updatedAt: now,
-      },
-      {
-        name: "Maria Oliveira",
-        whatsapp: "+5511888888888",
-        model: "Modelo B",
-        createdAt: now,
-        updatedAt: now,
-      },
-    ])
-    .onConflictDoNothing(); // Evita erro se a inserção for rodada múltiplas vezes (baseado no seu exemplo)
-
-  console.log("Inserção de campanhas concluída.");
-  return await db.select({
-    id: users.id
-  }).from(users).then((rows: { id: string }[]): string[] => rows.map(row => row.id));
 }
 
 seed();

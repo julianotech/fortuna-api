@@ -1,35 +1,7 @@
-import { boolean, integer, numeric, pgTable, text, timestamp } from "drizzle-orm/pg-core";
+import { boolean, numeric, pgTable, primaryKey, text, timestamp } from "drizzle-orm/pg-core";
 import { uuidv7 } from "uuidv7";
 
-// Admin Users Table
-export const adminUsers = pgTable("admin_users", {
-  id: text("id")
-    .primaryKey()
-    .$defaultFn(() => uuidv7()),
-  email: text("email").notNull().unique(),
-  password: text("password").notNull(), // Hashed with bcrypt
-  name: text("name").notNull(),
-  role: text("role").notNull().default("admin"), // admin, super_admin
-  isActive: integer("is_active").notNull().default(1), // 1 = active, 0 = inactive
-  lastLoginAt: timestamp("last_login_at"),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-  updatedAt: timestamp("updated_at").notNull().defaultNow(),
-});
-
-// Admin Sessions Table (optional - for JWT refresh tokens)
-export const adminSessions = pgTable("admin_sessions", {
-  id: text("id")
-    .primaryKey()
-    .$defaultFn(() => uuidv7()),
-  userId: text("user_id")
-    .notNull()
-    .references(() => adminUsers.id, { onDelete: "cascade" }),
-  token: text("token").notNull().unique(),
-  expiresAt: timestamp("expires_at").notNull(),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-});
-
-// Campaigns Table
+// Categories Table
 export const categories = pgTable("categories", {
   id: text("id")
     .primaryKey()
@@ -47,27 +19,57 @@ export const categories = pgTable("categories", {
     .references(() => users.id, { onDelete: "cascade" }),
 });
 
-// Products Table (shared with portal-sheet-view)
-export const transactions = pgTable("transactions", {
-  id: text("id")
-    .primaryKey()
-    .$defaultFn(() => uuidv7()),
-  categoryId: text("category_id").notNull(),
-  amount: numeric("amount", { precision: 14, scale: 2 }).notNull(),
-  description: text("description"),
-  date: timestamp("date").notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
-
 // Users Table (shared with portal-sheet-view)
 export const users = pgTable("users", {
   id: text("id")
     .primaryKey()
     .$defaultFn(() => uuidv7()),
   name: text("name").notNull(),
-  whatsapp: text("whatsapp").notNull().unique(),
+  email: text("email").notNull().unique(),
+  password: text("password").notNull(), // Hashed
+  whatsapp: text("whatsapp").unique(), // Made optional as email is now primary for auth
   model: text("model"),
+  status: text("status").notNull().default("active"),
+  role: text("role").notNull().default("user"), // user, admin
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Wallets Table
+export const wallets = pgTable("wallets", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => uuidv7()),
+  name: text("name").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Users-Wallets Many-to-Many Table
+export const usersWallets = pgTable("users_wallets", {
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  walletId: text("wallet_id")
+    .notNull()
+    .references(() => wallets.id, { onDelete: "cascade" }),
+  role: text("role").notNull().default("owner"), // owner, member, viewer
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (t) => ({
+  pk: primaryKey({ columns: [t.userId, t.walletId] }),
+}));
+
+// Products Table (shared with portal-sheet-view)
+export const transactions = pgTable("transactions", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => uuidv7()),
+  categoryId: text("category_id").notNull(),
+  walletId: text("wallet_id")
+    .references(() => wallets.id, { onDelete: "cascade" }), // Made nullable for migration/backward compatibility if needed, but ideally should be notNull
+  amount: numeric("amount", { precision: 14, scale: 2 }).notNull(),
+  description: text("description"),
+  date: timestamp("date").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -78,10 +80,12 @@ export type NewCategory = typeof categories.$inferInsert;
 export type Transactions = typeof transactions.$inferSelect;
 export type NewTransaction = typeof transactions.$inferInsert;
 
-export type AdminUser = typeof adminUsers.$inferSelect;
-export type NewAdminUser = typeof adminUsers.$inferInsert;
-export type AdminSession = typeof adminSessions.$inferSelect;
-export type NewAdminSession = typeof adminSessions.$inferInsert;
+
 
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
+
+export type Wallet = typeof wallets.$inferSelect;
+export type NewWallet = typeof wallets.$inferInsert;
+export type UsersWallets = typeof usersWallets.$inferSelect;
+export type NewUsersWallets = typeof usersWallets.$inferInsert;

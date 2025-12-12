@@ -1,10 +1,16 @@
 {
-  "exclude": ["api/**/*"],
+  "exclude": [
+    "api/**/*"
+  ],
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"],
-      "src/infra/*": ["./src/infra/*"]
+      "@/*": [
+        "./src/*"
+      ],
+      "src/infra/*": [
+        "./src/infra/*"
+      ]
     },
     "outDir": "./api",
     "rootDir": "./",
@@ -13,6 +19,7 @@
     "skipLibCheck": true,
     "allowJs": true,
     "noUnusedLocals": true,
-    "strictNullChecks": true
+    "strictNullChecks": true,
+    "esModuleInterop": true
   }
 }

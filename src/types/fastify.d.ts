@@ -5,3 +5,4 @@ declare module "fastify" {
     user?: { id: string };
   }
 }
+

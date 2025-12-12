@@ -15,6 +15,7 @@ const createCategorySchema = z.object({
   iconColor: z.string().min(1, "Cor do ícone deve ser fornecida").default("text-purple-500"),
   bgColor: z.string().min(1, "Cor de background deve ser fornecida").default("bg-yellow-500/20"),
   goal: z.string().min(1, "A Meta deve conter um valor válido").optional()
+
 });
 
 const updateCategorySchema = createCategorySchema.partial();
@@ -81,10 +82,29 @@ export default async function categoriesRoutes(fastify: FastifyInstance): Promis
   // Get category by ID
   fastify.get("/api/categories/:id", async (request, reply) => {
     try {
-      const { id } = request.params as { id: string };
+      // TODO: Add authentication middleware
+      const { type, search } = request.query as QueryCategories;
+      const conditions = [];
+      if (type) {
+        conditions.push(
+          eq(categories.type, type === 'income')
+        )
+      }
+
+      if (search) {
+        const searchPattern = `%${search}%`;
+
+        // Adiciona uma condição OR para buscar o texto na descrição OU no título da categoria
+        conditions.push(
+          or(
+            ilike(categories.title, searchPattern), // <<-- Agora busca na tabela categories
+          )
+        );
+      }
 
       const data = await constructCategoryQuery(db)
-        .where(eq(categories.id, id))
+        .where(and(...conditions))
+        .orderBy(categories.createdAt)
         .limit(1);
 
       if (!data) {
@@ -110,7 +130,6 @@ export default async function categoriesRoutes(fastify: FastifyInstance): Promis
   // Create category
   fastify.post("/api/categories", async (request, reply) => {
     try {
-      // TODO: Add authentication middleware
       request.log.info({ body: request.body }, "Received category data");
       const data = { ...request.body, userCreated: request.user.id }
       const body = createCategorySchema.parse(data);

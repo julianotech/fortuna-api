@@ -3,7 +3,7 @@ import Fastify from "fastify";
 
 import { loggerOptions } from "./infra";
 import authMiddleware from "./infra/authMiddleware";
-import { authRoutes, categoriesRoutes, transactionsRoutes } from "./routes/";
+import { categoriesRoutes, transactionsRoutes, userAuthRoutes, walletsRoutes } from "./routes/";
 import { env, isProduction } from "./support/";
 
 const fastify = Fastify(loggerOptions);
@@ -40,13 +40,14 @@ fastify.get("/api/health", async (): Promise<{ status: string, service: string }
   return { status: "ok", service: "fortuna-api" };
 });
 
-// Register routes
-fastify.register(authRoutes);
-fastify.register(categoriesRoutes);
-fastify.register(transactionsRoutes);
-
 // Registra o middleware de autenticação
 fastify.register(authMiddleware);
+
+// Register routes
+fastify.register(categoriesRoutes);
+fastify.register(transactionsRoutes);
+fastify.register(userAuthRoutes);
+fastify.register(walletsRoutes);
 
 // Start server (for local development)
 const start = async (): Promise<void> => {
