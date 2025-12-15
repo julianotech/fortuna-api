@@ -1,9 +1,9 @@
-import { and, eq, gte, ilike, lte, or, sql } from "drizzle-orm";
+import { and, eq, gte, ilike, inArray, lte, or, sql } from "drizzle-orm";
 import { FastifyInstance } from "fastify";
 import { z } from "zod";
 
 import { db } from "../../drizzle/db";
-import { categories, transactions, usersWallets, wallets } from "../../drizzle/schema";
+import { categories, transactions, wallets } from "../../drizzle/schema";
 
 // Validation schema
 const createTransactionSchema = z.object({
@@ -29,7 +29,6 @@ const getTransactionsSchema = {
       categoryId: { type: 'string' },
       walletId: { type: 'string' }
     },
-    required: ['walletId']
   },
 };
 
@@ -54,22 +53,18 @@ export default async function transactionsRoutes(fastify: FastifyInstance): Prom
       }
 
       // 1. Extrair e tipar os parâmetros da query
-      const { startDate, endDate, search, type, limit, categoryId, walletId } = request.query as QueryTransactions;
-
-      // Verify wallet access
-      const userWallet = await db.query.usersWallets.findFirst({
-        where: and(
-          eq(usersWallets.userId, user.id),
-          eq(usersWallets.walletId, walletId)
-        ),
-      });
-
-      if (!userWallet) {
-        return reply.status(403).send({ message: "Forbidden: You do not have access to this wallet" });
-      }
+      const { startDate, endDate, search, type, limit, categoryId } = request.query as QueryTransactions;
 
       // 2. Construir o array de condições (WHERE clauses)
-      const conditions = [eq(transactions.walletId, walletId)]; // Scope by wallet
+      const userWalletIds = user.wallets.map((wallet) => wallet.id);
+
+      if (!userWalletIds) {
+        return reply.status(403).send({ message: "Você não tem acesso à nenhuma carteira" });
+      }
+
+      const conditions = [
+        inArray(transactions.walletId, userWalletIds),
+      ];
 
       if (type && type !== 'all') {
         const isIncome = type === 'income';
@@ -98,9 +93,8 @@ export default async function transactionsRoutes(fastify: FastifyInstance): Prom
         // Adiciona uma condição OR para buscar o texto na descrição OU no título da categoria
         conditions.push(
           or(
-            // Busca na descrição da transação
             ilike(transactions.description, searchPattern),
-            ilike(categories.title, searchPattern), // <<-- Agora busca na tabela categories
+            ilike(categories.title, searchPattern),
           )
         );
       }
@@ -175,7 +169,7 @@ export default async function transactionsRoutes(fastify: FastifyInstance): Prom
       request.log.error(error);
       return reply.status(500).send({
         success: false,
-        message: "Erro ao criar transação",
+        message: "Erro ao buscar transações",
       });
     }
   });
@@ -197,23 +191,24 @@ export default async function transactionsRoutes(fastify: FastifyInstance): Prom
         })
         .from(transactions)
         .innerJoin(wallets, eq(transactions.walletId, wallets.id))
-        .innerJoin(usersWallets, eq(wallets.id, usersWallets.walletId))
         .where(and(
           eq(transactions.id, id),
-          eq(usersWallets.userId, user.id)
+          // transactions.walletId.inArray(user.wallets.map(w => w.id))
+          inArray(transactions.walletId, user.wallets)
         ))
         .limit(1);
+      console.log({ transaction })
 
-      if (transaction.length === 0) {
+      if (!transaction) {
         return reply.status(404).send({
           success: false,
-          message: "Transação não encontrada ou acesso negado",
+          message: "Transação encontrada ou usuário sem acesso à esta",
         });
       }
 
       return reply.send({
         success: true,
-        data: transaction[0].transaction,
+        data: transaction,
       });
     } catch (error) {
       request.log.error(error);
@@ -236,23 +231,15 @@ export default async function transactionsRoutes(fastify: FastifyInstance): Prom
       const body = createTransactionSchema.parse(request.body);
       request.log.info({ parsedBody: body }, "Parsed transaction data");
 
-      // Verify wallet access
-      const userWallet = await db.query.usersWallets.findFirst({
-        where: and(
-          eq(usersWallets.userId, user.id),
-          eq(usersWallets.walletId, body.walletId)
-        ),
-      });
-
-      if (!userWallet) {
+      if (!user.wallets.some(wallet => wallet.id === body.walletId)) {
         return reply.status(403).send({ message: "Forbidden: You do not have access to this wallet" });
       }
 
-      const newTransactions = await db.insert(transactions).values(body).returning();
+      const [data] = await db.insert(transactions).values(body).returning();
 
       return reply.status(201).send({
         success: true,
-        data: newTransactions[0],
+        data,
       });
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -293,29 +280,13 @@ export default async function transactionsRoutes(fastify: FastifyInstance): Prom
         return reply.status(404).send({ message: "Transação não encontrada" });
       }
 
-      // Check if user has access to the wallet of the transaction
-      const userWallet = await db.query.usersWallets.findFirst({
-        where: and(
-          eq(usersWallets.userId, user.id),
-          eq(usersWallets.walletId, existingTransaction[0].walletId!)
-        ),
-      });
-
-      if (!userWallet) {
+      if (!user.wallets.some(wallet => wallet.id === existingTransaction[0].walletId!)) {
         return reply.status(403).send({ message: "Forbidden: You do not have access to this transaction" });
       }
 
       // If changing wallet, verify access to new wallet
-      if (body.walletId && body.walletId !== existingTransaction[0].walletId) {
-        const newUserWallet = await db.query.usersWallets.findFirst({
-          where: and(
-            eq(usersWallets.userId, user.id),
-            eq(usersWallets.walletId, body.walletId)
-          ),
-        });
-        if (!newUserWallet) {
-          return reply.status(403).send({ message: "Forbidden: You do not have access to the target wallet" });
-        }
+      if (body.walletId && body.walletId !== existingTransaction[0].walletId && !user.wallets.some(wallet => wallet.id === body.walletId)) {
+        return reply.status(403).send({ message: "Forbidden: You do not have access to the target wallet" });
       }
 
       const updated = await db
@@ -366,14 +337,7 @@ export default async function transactionsRoutes(fastify: FastifyInstance): Prom
         return reply.status(404).send({ message: "Transação não encontrada" });
       }
 
-      const userWallet = await db.query.usersWallets.findFirst({
-        where: and(
-          eq(usersWallets.userId, user.id),
-          eq(usersWallets.walletId, existingTransaction[0].walletId!)
-        ),
-      });
-
-      if (!userWallet) {
+      if (!user.wallets.some(wallet => wallet.id === existingTransaction[0].walletId!)) {
         return reply.status(403).send({ message: "Forbidden: You do not have access to this transaction" });
       }
 

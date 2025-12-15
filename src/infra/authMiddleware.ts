@@ -1,61 +1,77 @@
 import { eq } from "drizzle-orm";
-import { FastifyPluginAsync, FastifyReply, FastifyRequest } from "fastify";
 import fp from "fastify-plugin";
 import jwt from "jsonwebtoken";
-import { db } from "../../drizzle/db";
-import { users } from "../../drizzle/schema";
-import { env } from "../support";
 
-declare module "fastify" {
-  interface FastifyRequest {
-    user?: { id: string }; // Ou o tipo completo do seu usuário, se preferir
-  }
-}
+import { env } from "@/support";
+import { db } from "drizzle/db";
+import { users, usersWallets, wallets } from "../../drizzle/schema";
 
-const authMiddleware: FastifyPluginAsync = fp(async (fastify) => {
-  fastify.decorateRequest("user");
+export default fp(async (fastify) => {
+  fastify.decorateRequest("user", null);
 
-  fastify.addHook("preHandler", async (request: FastifyRequest, reply: FastifyReply) => {
-    const publicRoutes = ['/api/auth/login', '/api/auth/register'];
-    console.log(`[AuthMiddleware] Checking URL: ${request.url}`);
+  fastify.addHook("preHandler", async (request, reply) => {
+    const publicRoutes = ["/api/auth/login", "/api/auth/register"];
+
     if (publicRoutes.includes(request.url)) {
-      return
+      return;
     }
+
     const authHeader = request.headers.authorization;
 
-    if (!authHeader || !authHeader.startsWith("Bearer")) {
-      request.log.warn("Missing or malformed Authorization header");
-      fastify.log.warn(`[AuthMiddleware] Missing or malformed Authorization header for URL: ${request.url}`);
-      return reply.status(401).send({ message: "Unauthorized" });
+    if (!authHeader?.startsWith("Bearer ")) {
+      reply.status(401).send({ message: "Unauthorized" });
+      return;
     }
 
     const [_, token] = authHeader.split(" ");
 
     try {
       const decoded = jwt.verify(token, env.JWT_SECRET) as { id: string };
-      const userId = decoded.id;
 
+      /**
+       * 1️⃣ Busca usuário
+       */
       const user = await db.query.users.findFirst({
-        where: eq(users.id, userId),
+        where: eq(users.id, decoded.id),
       });
 
-      console.log({ user })
-
-      if (!user || user.status !== 'active') {
-        request.log.warn(`User with ID ${userId} not found or inactive`);
-        return reply.status(401).send({ message: "Unauthorized" });
+      if (!user || user.status !== "active") {
+        reply.status(401).send({ message: "Unauthorized" });
+        return;
       }
 
-      request.user = { id: user.id }; // Adiciona o usuário ao objeto request
+      /**
+       * 2️⃣ Busca wallets às quais ele tem acesso
+       */
+      const walletsResult = await db
+        .select({
+          id: wallets.id,
+          name: wallets.name,
+          role: usersWallets.role,
+        })
+        .from(usersWallets)
+        .innerJoin(wallets, eq(wallets.id, usersWallets.walletId))
+        .where(eq(usersWallets.userId, user.id));
+
+      /**
+       * 3️⃣ Injeta usuário normalizado na request
+       */
+      request.user = {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        wallets: walletsResult,
+      };
+
     } catch (err) {
       if (err instanceof jwt.JsonWebTokenError) {
-        request.log.warn(`Invalid JWT token: ${err.message}`);
-        return reply.status(401).send({ message: "Unauthorized" });
+        reply.status(401).send({ message: "Unauthorized" });
+        return;
       }
-      request.log.error(err, "Authentication error");
-      return reply.status(500).send({ message: "Internal Server Error" });
+
+      request.log.error(err);
+      reply.status(500).send({ message: "Internal Server Error" });
     }
   });
 });
-
-export default authMiddleware;
