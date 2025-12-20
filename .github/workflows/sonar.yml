@@ -1,9 +1,12 @@
 name: SonarQube
 on:
-  pull_request:
-    types: [opened, synchronize, reopened]
+  push: 
     branches:
       - main
+  # pull_request:
+  #   types: [opened, synchronize, reopened]
+    # tags:
+    #   - '*'
 jobs:
   sonarqube:
     name: Sonar-${{ github.repository }}

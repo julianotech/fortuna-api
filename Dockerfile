@@ -1,26 +1,23 @@
-FROM node:20-slim AS builder
+FROM oven/bun:1.1-slim AS builder
 
 WORKDIR /app
 
-COPY package.json package-lock.json* ./
-RUN npm install
+COPY package.json bun.lock ./
+RUN bun install --frozen-lockfile
 
 COPY . .
 
-RUN NUXT_BUILD=true npm run build
+RUN bun run build
 
 # ----------------------------------------------------
-FROM node:20-slim
+FROM oven/bun:1.1-slim
 
 WORKDIR /app
 
+# Copy the bundled output and package.json
+COPY --from=builder /app/api ./api
 COPY --from=builder /app/package.json ./package.json
-COPY --from=builder /app/package-lock.json* ./
-
-RUN npm install --omit=dev 
-
-COPY --from=builder /app/.output ./.output
 
 EXPOSE 3000
 
-CMD [ "npm", "run", "start" ]
+CMD [ "bun", "api/index.cjs" ]
