@@ -1,4 +1,4 @@
-import { hash } from "bcrypt";
+import { hash } from "bcryptjs";
 import { db } from "./db";
 import { categories, transactions, users, usersWallets, wallets } from "./schema";
 

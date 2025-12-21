@@ -1,4 +1,4 @@
-import { compare, hash } from "bcrypt";
+import { compare, hash } from "bcryptjs";
 import { eq } from "drizzle-orm";
 import { FastifyInstance } from "fastify";
 import jwt from "jsonwebtoken";
