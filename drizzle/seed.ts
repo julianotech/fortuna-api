@@ -8,7 +8,7 @@ const SALT_ROUNDS = 10;
 
 async function seed(): Promise<void> {
   console.log("🌱 Seeding database...\n");
-  
+
   // Clean up existing data
   await db.delete(transactions);
   await db.delete(usersWallets);
@@ -105,22 +105,22 @@ async function seed(): Promise<void> {
       // Create Transactions
       const userTransactions = [
         {
-            categoryId: createdCats[0].id, // Salário
-            walletId: wallet.id,
-            amount: "3000.00",
-            description: "Adiantamento Salarial",
-            date: new Date(),
+          categoryId: createdCats[0].id, // Salário
+          walletId: wallet.id,
+          amount: "3000.00",
+          description: "Adiantamento Salarial",
+          date: new Date(),
         },
         {
-            categoryId: createdCats[1].id, // Alimentação
-            walletId: wallet.id,
-            amount: "150.50",
-            description: "Mercado Semanal",
-            date: new Date(),
+          categoryId: createdCats[1].id, // Alimentação
+          walletId: wallet.id,
+          amount: "150.50",
+          description: "Mercado Semanal",
+          date: new Date(),
         }
       ];
 
-       await db.insert(transactions).values(userTransactions);
+      await db.insert(transactions).values(userTransactions);
     }
 
     console.log("   ✅ Wallets, Categories and Transactions created");
